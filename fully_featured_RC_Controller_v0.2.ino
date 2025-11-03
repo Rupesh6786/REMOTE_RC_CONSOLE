@@ -108,6 +108,8 @@ const unsigned long SEND_INTERVAL_MS = 50;
 
 int currentMode = 0;  // 0 = Joystick Car, 1 = Gesture Car
 
+String btPassword = "1234";  // Global Bluetooth password (for HC-05 or others)
+
 // ------------------ Helpers ------------------
 void lcdCenterPrint(int row, const char* text) {
   int len = strlen(text);
@@ -404,9 +406,26 @@ bool connectToDeviceIndex(int idx) {
 
   connectInProgress = true;
 
-  drawConnecting(devices[idx].hasName ? devices[idx].name : "Unknown");
-  // Attempt connect by address
-  bool ok = SerialBT.connect(devices[idx].addr);
+  String devName = devices[idx].hasName ? devices[idx].name : "Unknown";
+  drawConnecting(devName.c_str());
+
+  bool ok = false;
+
+  // --- Handle password-protected HC-05/06 modules ---
+  if (devName.startsWith("HC-05") || devName.startsWith("HC-06")) {
+
+    // Set PIN dynamically just before connecting
+    esp_bt_gap_set_pin(ESP_BT_PIN_TYPE_FIXED, 0, (uint8_t*)btPassword.c_str());
+
+    // Optional: small delay to ensure PIN is registered
+    delay(200);
+
+    ok = SerialBT.connect(devices[idx].addr);
+  } else {
+    // --- Normal Bluetooth connection ---
+    ok = SerialBT.connect(devices[idx].addr);
+  }
+
   connectInProgress = false;
   isConnected = ok;
   return ok;
